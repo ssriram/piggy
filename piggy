@@ -1,0 +1,174 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import sqlite3
+import datetime
+
+filename = 'accounts.db'
+
+def initschema():
+    db = sqlite3.connect(filename)
+    schema = """
+
+create table if not exists settings(
+id integer primary key autoincrement,
+key text,
+value text
+);
+
+create table if not exists entity(
+id integer primary key autoincrement,
+name text,
+type text,
+value real,
+flow text,
+payback text
+);
+
+create table if not exists transactions(
+id integer primary key autoincrement,
+date text,
+type text,
+value real,
+person integer references entity,
+location integer references entity,
+thing integer references entity,
+status text
+);
+
+create index if not exists trans_date_idx on transactions(
+id,date
+);
+
+create index if not exists trans_person_idx on transactions(
+id,person
+);
+
+create index if not exists trans_location_idx on transactions(
+id,location
+);
+
+create index if not exists trans_thing_idx on transactions(
+id,thing
+);
+
+create index if not exists trans_status_idx on transactions(
+id,thing
+);
+
+"""
+
+    c = db.cursor()
+    c.executescript(schema)
+    db.commit()
+    c.close()
+    pass
+
+
+def do_stuff():
+    alist = sys.argv[1:]
+
+    if alist[0] == 'entity':
+        do_entity(alist[1:])
+    elif alist[0] == 'must' or alist[0] == 'give' or alist[0] == 'take':
+        do_transact(alist)
+    else:
+        print 'invalid command'
+
+    pass
+
+def do_entity(elist):
+    ename,etype,evalue,eflow,epayback = '','thing',0.0,'inout','yes'
+
+    for i in range(len(elist)):
+        if elist[i] == 'name':
+            ename = elist[i+1]
+        elif elist[i] == 'type':
+            etype = elist[i+1]
+        elif elist[i] == 'value':
+            evalue = elist[i+1]
+        elif elist[i] == 'flow':
+            eflow = elist[i+1]
+        elif elist[i] == 'payback':
+            epayback = elist[i+1]
+
+    if ename != '':
+        db = sqlite3.connect(filename)
+        c = db.cursor()
+        c.execute("insert into entity values(null,?,?,?,?,?)",(ename,etype,evalue,eflow,epayback))
+        db.commit()
+        c.close()
+
+        print 'entity:',ename,'- has been added.'
+    else:
+        print 'invalid entity command'
+    pass
+
+
+def do_transact(tlist):
+    ttype,tvalue,tperson,tlocation,tthing,tstatus='',0.0,'','','','done'
+
+    for i in range(len(tlist)):
+        if tlist[i] == 'must':
+            tstatus = 'do'
+        if tlist[i] == 'give':
+            ttype = 'give'
+            tvalue = tlist[i+1]
+        if tlist[i] == 'take':
+            ttype = 'take'
+            tvalue = tlist[i+1]
+        if tlist[i] == 'to' or tlist[i] == 'from':
+            tperson = tlist[i+1]
+        if tlist[i] == 'at':
+            tlocation = tlist[i+1]
+        if tlist[i] == 'for':
+            tthing = tlist[i+1]
+
+####logic engine####
+
+#if person entity is present
+#   set person fk
+# else
+#   add person entity if required
+#   set person fk
+#
+
+
+
+    if (ttype == 'give' or ttype == 'take') and (tstatus == 'done' or tstatus == 'do') and (tperson != '' and tvalue != 0.0):
+        db = sqlite3.connect(filename)
+        c = db.cursor()
+        c.execute("insert into transactions values(null,?,?,?,?,?,?,?)",(str(datetime.date.today()),ttype,tvalue,tperson,tlocation,tthing,tstatus))
+        db.commit()
+        c.close()
+
+        print 'transaction has been added.'
+    else:
+        print 'invalid transaction(give/take) command'
+    pass
+
+def main():
+
+    if len(sys.argv) < 2:
+        print """
+Artha 1.0
+Usage:
+
+"""
+    else:
+
+        print sys.argv[1:]
+
+        if os.path.isfile(filename):
+            print 'Please smile, your account.db file has been found'
+            do_stuff()
+        else:
+            print ('Initializing Artha schema on %s' % filename)
+            initschema()
+            print ('Artha schema initialized on %s' % filename)
+    pass
+
+
+if __name__ == '__main__':
+    main()
