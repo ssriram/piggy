@@ -93,16 +93,29 @@ def do_entity(elist):
         elif elist[i] == 'payback':
             epayback = elist[i+1]
 
-    if ename != '':
+    if ename != '' or (etype != 'person' and etype != 'location' and etype != 'thing') or (eflow != 'in' and eflow != 'out' and eflow != 'inout') or (payback != 'yes' and payback != 'no') :
         db = sqlite3.connect(filename)
         c = db.cursor()
-        c.execute("insert into entity values(null,?,?,?,?,?)",(ename,etype,evalue,eflow,epayback))
-        db.commit()
-        c.close()
-
-        print 'entity:',ename,'- has been added.'
+        sql=""" select * from entity where name= '%s'; """ % ename
+        c.execute(sql)
+        if len(c.fetchone()) > 0:
+            print "entity already exists so updating"
+            sql=""" update entity set type='%s',value=%s,flow='%s',payback='%s' where name='%s'; """ % (etype,evalue,eflow,epayback,ename)
+            #print (sql)
+            c.execute(sql)
+            db.commit()
+            c.close()
+            print 'entity:',ename,'- has been updated.'
+        else:   
+            sql=""" insert into entity values(null,'%s','%s',%s,'%s','%s'); """ % (ename,etype,evalue,eflow,epayback)
+            #print (sql)
+            c.execute(sql)
+            db.commit()
+            c.close()
+            print 'entity:',ename,'- has been added'
     else:
         print 'invalid entity command'
+        c.close()
     pass
 
 
@@ -129,11 +142,10 @@ def do_transact(tlist):
 
 #if person entity is present
 #   set person fk
-# else
+#else
 #   add person entity if required
 #   set person fk
 #
-
 
 
     if (ttype == 'give' or ttype == 'take') and (tstatus == 'done' or tstatus == 'do') and (tperson != '' and tvalue != 0.0):
@@ -152,8 +164,33 @@ def main():
 
     if len(sys.argv) < 2:
         print """
-Artha 1.0
-Usage:
+piggy 1.0
+usage:
+
+piggy entity name salary type thing value 10000 flow in payback no
+piggy entity bonus type thing value 5000 flow in payback no
+piggy entity milkman type person value 5.5 flow out payback no
+piggy take salary
+piggy take bonus 30000
+piggy take 50000 from dad at NY for car
+piggy give 2000 for birthday-gift to sis
+piggy give milkman for june
+piggy take salary
+piggy sheet
+
+entity name <name> type <type> value <val> flow <in/out/inout> payback <yes/no>
+[must] give <value> to <person> for <thing> at <location>
+[must] take <value> from <person> for <thing> at <location>
+[must] give <entity> <value>
+[must] take <entity> <value>
+show
+show <lines> <first or last>
+show entity
+balance
+piggy
+do
+done <id>
+sheet
 
 """
     else:
@@ -161,12 +198,12 @@ Usage:
         print sys.argv[1:]
 
         if os.path.isfile(filename):
-            print 'Please smile, your account.db file has been found'
+            print 'please smile, your account.db file has been found'
             do_stuff()
         else:
-            print ('Initializing Artha schema on %s' % filename)
+            print ('initializing piggy schema on %s' % filename)
             initschema()
-            print ('Artha schema initialized on %s' % filename)
+            print ('piggy schema initialized on %s' % filename)
     pass
 
 
